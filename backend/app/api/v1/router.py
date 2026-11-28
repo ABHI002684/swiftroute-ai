@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import employees, health
+from app.api.v1.endpoints import deliveries, employees, health
 
 api_router = APIRouter()
 
@@ -14,4 +14,10 @@ api_router.include_router(
     employees.router,
     prefix="/employees",
     tags=["Employees"],
+)
+
+api_router.include_router(
+    deliveries.router,
+    prefix="/deliveries",
+    tags=["Deliveries"],
 )
