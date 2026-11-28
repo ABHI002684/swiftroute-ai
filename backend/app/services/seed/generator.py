@@ -137,6 +137,50 @@ def build_status_list():
     return statuses
 
 
+
+def build_delivery_timeline(rng, delivery_status, now):
+    delivered_at = None
+
+    if delivery_status in {"pending", "assigned"}:
+        created_at = now - timedelta(hours=rng.randint(1, 24 * 14))
+        scheduled_delivery = now + timedelta(hours=rng.randint(6, 72))
+
+    elif delivery_status in {"picked_up", "in_transit"}:
+        scheduled_delivery = now + timedelta(hours=rng.randint(-12, 36))
+        created_at = min(
+            now - timedelta(hours=rng.randint(6, 24 * 10)),
+            scheduled_delivery - timedelta(hours=1),
+        )
+
+    elif delivery_status == "delayed":
+        scheduled_delivery = now - timedelta(hours=rng.randint(1, 48))
+        created_at = scheduled_delivery - timedelta(hours=rng.randint(12, 72))
+
+    elif delivery_status == "delivered":
+        scheduled_delivery = now - timedelta(hours=rng.randint(1, 72))
+        created_at = scheduled_delivery - timedelta(hours=rng.randint(12, 72))
+
+        delivered_at = min(
+            now,
+            scheduled_delivery + timedelta(hours=rng.randint(-8, 12)),
+        )
+        delivered_at = max(created_at, delivered_at)
+
+    else:
+        scheduled_delivery = now - timedelta(hours=rng.randint(1, 72))
+        created_at = scheduled_delivery - timedelta(hours=rng.randint(12, 72))
+
+    updated_at = (
+        delivered_at
+        if delivered_at is not None
+        else min(
+            now,
+            created_at + timedelta(hours=rng.randint(1, 48)),
+        )
+    )
+
+    return created_at, scheduled_delivery, delivered_at, updated_at
+
 def create_deliveries(db, employees_by_city):
     rng = random.Random(42)
     now = datetime.now(timezone.utc)
@@ -182,37 +226,18 @@ def create_deliveries(db, employees_by_city):
         while delivery_area == pickup_area:
             delivery_area = rng.choice(ADDRESSES[city])
 
-        created_at = now - timedelta(
-            hours=rng.randint(1, 24 * 21)
-        )
-
-        scheduled_delivery = created_at + timedelta(
-            hours=rng.randint(12, 72)
-        )
-
-        delivered_at = None
-
-        if delivery_status == "delivered":
-            estimated_delivery_time = scheduled_delivery + timedelta(
-                hours=rng.randint(-8, 12)
-            )
-
-            delivered_at = max(
-                created_at,
-                min(now, estimated_delivery_time),
-            )
-
-        updated_at = min(
+        (
+            created_at,
+            scheduled_delivery,
+            delivered_at,
+            updated_at,
+        ) = build_delivery_timeline(
+            rng,
+            delivery_status,
             now,
-            max(
-                created_at,
-                delivered_at or (
-                    created_at + timedelta(
-                        hours=rng.randint(0, 48)
-                    )
-                ),
-            ),
         )
+
+
 
         delivery = Delivery(
             tracking_number=tracking_number,
